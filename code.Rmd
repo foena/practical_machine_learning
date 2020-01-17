@@ -1,0 +1,112 @@
+---
+title: "Practical Machine Learning Project"
+author: "Mike"
+date: "17 JÃ¤nner 2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+# Data
+
+The training data for this project are available here: [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv]
+
+The test data are available here: [https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv]
+
+The data for this project come from this source: [http://groupware.les.inf.puc-rio.br/har]. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+# What you should submit
+
+The goal of your project is to predict the manner in which they did the exercise. This is the “classe” variable in the training set. You may use any of the other variables to predict with. You should create a report describing how you built your model, how you used cross validation, what you think the expected out of sample error is, and why you made the choices you did. You will also use your prediction model to predict 20 different test cases.
+
+Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis. Please constrain the text of the writeup to < 2000 words and the number of figures to be less than 5. It will make it easier for the graders if you submit a repo with a gh-pages branch so the HTML page can be viewed online (and you always want to make it easy on graders :-).
+You should also apply your machine learning algorithm to the 20 test cases available in the test data above. Please submit your predictions in appropriate format to the programming assignment for automated grading. See the programming assignment for additional details.
+
+
+## Loading necessary packages
+
+```{r, message = FALSE}
+rm(list = ls(all.names = TRUE))
+#install.packages("data.table")
+#install.packages("rpart.plot")
+#install.packages("rpart")
+#install.packages("rattle")
+#install.packages("e1071")
+#install.packages("randomForest")
+library(data.table)
+library(tidyr)
+library(caret)
+library(rpart)
+library(rattle)
+library(e1071)
+library(rpart.plot)
+library(randomForest)
+library(dplyr)
+```
+
+## Getting and cleaning the Data
+
+The first step is to download the data, load it into R and prepare it for the modeling process.
+
+```{r, eval = TRUE}
+train.data <- data.frame(fread("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"))
+test.data <- data.frame(fread("https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"))
+
+# Drop the first 7 columns as they're unnecessary for predicting.
+train.data.clean <- train.data[,8:length(colnames(train.data))]
+test.data.clean <- test.data[,8:length(colnames(test.data))]
+train.data.clean <- train.data.clean[, colSums(is.na(train.data.clean)) == 0] 
+test.data.clean <- test.data.clean[, colSums(is.na(test.data.clean)) == 0] 
+
+# Splitting up the whole training data set into 75 % subTraining and 25 % subTesting 
+sub.samples <- createDataPartition(y=train.data.clean$classe, p=0.75, list=FALSE)
+sub.train.data.clean <- train.data.clean[createDataPartition(y=train.data.clean$classe, p=0.75, list=FALSE),] 
+sub.test.data.clean <- train.data.clean[-(createDataPartition(y=train.data.clean$classe, p=0.75, list=FALSE)),]
+```
+
+## First prediction model
+
+A decision tree is developed as the first prediction model. The model is trained using the training data set. A prediction model is derived from the data set generated in this way and the actual model is displayed as a graph. A confusion matrix and various statistics are used to evaluate the application of the model to the test data in order to obtain a statement about the suitability of the model.
+
+```{r,, eval = TRUE}
+        first.model <- rpart(classe ~ ., data=sub.train.data.clean, method="class")
+
+        # Predicting:
+        first.prediction<- predict(first.model, sub.test.data.clean, type = "class")
+
+        # Plot of the Decision Tree
+        rpart.plot(first.model, extra=102, under=TRUE, faclen=0,cex=0.5)
+        
+        # Test results:
+        confusionMatrix(first.prediction,factor(sub.test.data.clean$classe))
+```
+With regard to the results, it should be noted that the accuracy of 74% is not particularly high. For this reason, another model is being developed or tested.
+
+## Second prediction model:
+
+A random forest model is developed using the same methodology as mentioned above. Identical trainings and test data are also used to generate the model in order to be able to make comparable statements.
+
+```{r,, eval = TRUE}
+        second.model <- randomForest(as.factor(classe) ~. , data = sub.train.data.clean, method="class")
+        
+        # Predicting:
+        second.prediction<- predict(second.model, sub.test.data.clean, type = "class")
+        
+        # Test results on  subTesting data set:
+        confusionMatrix(second.prediction,factor(sub.test.data.clean$classe))
+```
+
+## Decision:
+
+As has been shown, the random forrest model has a higher accuracy than the decision tree model. Therefore, the random forest model is chosen and applied to the actual test data set.
+
+## Final modell results:
+
+```{r,, eval = TRUE}
+ final.prediction <- predict(second.model, test.data, type="class")
+final.prediction
+```
